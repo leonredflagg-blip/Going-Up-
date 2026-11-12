@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#040914">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Going Up — Ліфт до Небес | Онлайн Хмарочос</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛗</text></svg>">
+    <!-- PeerJS для P2P з'єднання через мережу -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+
+    <!-- Анімований фон шахти ліфта -->
+    <div class="elevator-shaft-bg" id="shaftBg"></div>
+
+    <!-- Canvas для конфетті та спецефектів -->
+    <canvas id="confettiCanvas"></canvas>
+
+    <!-- Ефект саботажу (коли суперник кидає баг) -->
+    <div class="sabotage-overlay" id="sabotageOverlay">
+        <div class="sabotage-content">
+            <span class="sabotage-icon">🪲💥</span>
+            <h3>САБОТАЖ ВІД СУПЕРНИКА!</h3>
+            <p id="sabotageSenderName">Хтось запустив жука у ваш ліфт! Клікніть, щоб струсити його!</p>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         ГОЛОВНЕ МЕНЮ (MAIN MENU)
+         ======================================================== -->
+    <section class="main-menu-screen" id="mainMenuScreen">
+        <div class="menu-container">
+            
+            <!-- Логотип та шапка меню -->
+            <div class="menu-hero">
+                <div class="menu-badge">МУЛЬТИПЛЕЄР ДЛЯ 2, 3, 4+ ГРАВЦІВ</div>
+                <h1 class="menu-title">GOING <span>UP</span></h1>
+                <p class="menu-subtitle">Хмарочос приколів, головоломок та битв ліфтів</p>
+            </div>
+
+            <!-- Профіль гравця (Аватар + Ім'я) -->
+            <div class="player-profile-card">
+                <div class="avatar-select-wrap">
+                    <span class="profile-avatar" id="currentAvatarDisplay">🚀</span>
+                    <button class="btn-change-avatar" id="btnChangeAvatar" title="Змінити аватар">Змінити</button>
+                </div>
+                <div class="profile-inputs">
+                    <label class="input-label" for="menuPlayerName">Ім'я пасажира ліфта:</label>
+                    <input type="text" id="menuPlayerName" value="Пілот Ліфта" maxlength="16" placeholder="Ваш нікнейм">
+                </div>
+            </div>
+
+            <!-- Список доступних аватарів -->
+            <div class="avatar-picker-dropdown" id="avatarPicker">
+                <span class="avatar-option" data-avatar="🚀">🚀</span>
+                <span class="avatar-option" data-avatar="🐱">🐱</span>
+                <span class="avatar-option" data-avatar="🤖">🤖</span>
+                <span class="avatar-option" data-avatar="👨‍💻">👨‍💻</span>
+                <span class="avatar-option" data-avatar="🕶️">🕶️</span>
+                <span class="avatar-option" data-avatar="👑">👑</span>
+                <span class="avatar-option" data-avatar="🦉">🦉</span>
+                <span class="avatar-option" data-avatar="🦊">🦊</span>
+            </div>
+
+            <!-- Кнопки вибору режимів гри -->
+            <div class="modes-grid">
+                
+                <!-- Одиночний режим -->
+                <div class="mode-card" id="btnStartSolo">
+                    <div class="mode-icon-box">🚀</div>
+                    <div class="mode-text">
+                        <h3 class="mode-name">Одиночний Підйом</h3>
+                        <p class="mode-info">10 поверхів, море запитань, вбудований ШІ-генератор завдань та бос на даху.</p>
+                    </div>
+                    <div class="mode-arrow">➔</div>
+                </div>
+
+                <!-- Багатокористувацька Битва Ліфтів (Без ботів!) -->
+                <div class="mode-card online-glow" id="btnOpenOnlineModal">
+                    <div class="mode-icon-box online-pulse">⚔️</div>
+                    <div class="mode-text">
+                        <div class="online-tag">РЕАЛЬНІ ГРАВЦІ (2-8 ОСІБ)</div>
+                        <h3 class="mode-name">Битва Ліфтів Онлайн</h3>
+                        <p class="mode-info">Грай з 2, 3, 4 або більше реальними друзями у спільній кімнаті без ботів!</p>
+                    </div>
+                    <div class="mode-arrow">➔</div>
+                </div>
+
+            </div>
+
+            <!-- Нижня панель швидких дій -->
+            <div class="menu-bottom-actions">
+                <button class="menu-sub-btn" id="btnMenuRecords">🏆 Рекорди</button>
+                <button class="menu-sub-btn" id="btnMenuHelp">📖 Правила & Бали</button>
+                <button class="menu-sub-btn" id="btnMenuSound">🔊 Звук: УВІМК</button>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ========================================================
+         ІГРОВИЙ ЕКРАН (КАБІНА ЛІФТА)
+         ======================================================== -->
+    <main class="game-container" id="gameScreen" style="display: none;">
+        
+        <div class="elevator-cabin" id="elevatorCabin">
+            
+            <!-- ВЕРХНЯ ПАНЕЛЬ: ТАБЛО, ПОВЕРХ, РАХУНОК, ПЕРЕГОНИ -->
+            <header class="elevator-header">
+                
+                <div class="header-left">
+                    <button class="btn-home" id="btnBackToMenu" title="Повернутися в меню">
+                        <span>◀</span>
+                        <span>Меню</span>
+                    </button>
+                    
+                    <!-- Цифрове LED табло поверху -->
+                    <div class="floor-indicator">
+                        <span class="indicator-arrow" id="floorArrow">▲</span>
+                        <span class="floor-number-display" id="floorDisplay">FL 01</span>
+                    </div>
+                </div>
+
+                <!-- ТАБЛО ПЕРЕГОНІВ (ДЛЯ 2, 3, 4+ ГРАВЦІВ) -->
+                <div class="multi-race-board" id="multiRaceBoard" style="display: none;">
+                    <div class="race-board-title">🏁 ПЕРЕГОНИ ЛІФТІВ</div>
+                    <div class="race-players-row" id="racePlayersRow">
+                        <!-- Динамічні міні-картки всіх суперників -->
+                    </div>
+                </div>
+
+                <!-- Бали та комбо гравця -->
+                <div class="stats-bar">
+                    <div class="stat-chip">
+                        <span class="stat-label">Бали</span>
+                        <span class="stat-value score" id="scoreDisplay">0</span>
+                    </div>
+                    <div class="combo-badge" id="comboBadge" style="display: none;">
+                        <span>🔥</span>
+                        <span id="comboMultiplier">x1.0</span>
+                    </div>
+                </div>
+
+            </header>
+
+            <!-- ТАЙМЕР -->
+            <div class="timer-container">
+                <div class="timer-bar" id="timerBar"></div>
+            </div>
+
+            <!-- ДВЕРІ ТА ГОЛОВНА АРЕНА ЛІФТА -->
+            <div class="elevator-door-system" id="doorSystem">
+                
+                <!-- Розсувні двері ліфта -->
+                <div class="elevator-door left">
+                    <div class="door-stripe"></div>
+                </div>
+                <div class="elevator-door right">
+                    <div class="door-stripe"></div>
+                </div>
+
+                <!-- Сцена завдань / запитань -->
+                <section class="game-stage" id="gameStage">
+                    
+                    <div class="task-card" id="taskCard">
+                        <div class="task-top-meta">
+                            <span class="category-tag cat-blitz" id="categoryBadge">⚡ Швидкий Бліц</span>
+                            <span class="points-pill" id="pointsPill">+100 БАЛІВ</span>
+                        </div>
+
+                        <h2 class="question-text" id="questionText">
+                            Завантаження систем ліфта...
+                        </h2>
+
+                        <!-- Варіанти відповідей -->
+                        <div class="options-grid" id="optionsGrid">
+                            <!-- Кнопки генеруються з JS -->
+                        </div>
+
+                        <!-- Контейнер для інтерактивних міні-ігор -->
+                        <div class="minigame-container" id="minigameContainer" style="display: none;">
+                            <!-- Специфічний контент міні-ігор -->
+                        </div>
+                    </div>
+
+                    <!-- Коментатор: ШІ-ліфтер Василь -->
+                    <div class="concierge-speech" id="conciergeBox">
+                        <span class="concierge-avatar">🤖</span>
+                        <span class="concierge-text" id="conciergeText">
+                            "Двері зачиняються, наступна зупинка — дах хмарочоса! Тисніть правильні відповіді!"
+                        </span>
+                    </div>
+
+                </section>
+
+            </div>
+
+            <!-- НИЖНЯ ПАНЕЛЬ: ПРИЛАДИ ТА ПРИКОЛЬЧИКИ -->
+            <footer class="elevator-controls">
+                
+                <div class="gadgets-group">
+                    <!-- Дзвінок диспетчеру (50/50 підказка) -->
+                    <button class="gadget-btn" id="btnDispatcher" title="Зателефонувати диспетчеру Василю (прибирає 2 неправильні відповіді)">
+                        <span>📞</span>
+                        <span class="gadget-text">Диспетчер</span>
+                        <span class="badge-count" id="dispatcherBadge">1</span>
+                    </button>
+
+                    <!-- Кава (Заморозити час / Множник) -->
+                    <button class="gadget-btn" id="btnCoffee" title="Випити еспресо: додає 7 секунд до таймера!">
+                        <span>☕</span>
+                        <span class="gadget-text">Еспресо</span>
+                        <span class="badge-count" id="coffeeBadge">1</span>
+                    </button>
+
+                    <!-- Червона кнопка: НЕ НАТИСКАТИ! -->
+                    <button class="red-panic-button" id="btnRedButton" title="УВАГА: СУВОРО ЗАБОРОНЕНО!">
+                        <span>🚨</span>
+                        <span class="gadget-text">НЕ ТИСНУТИ!</span>
+                    </button>
+
+                    <!-- Онлайн саботаж (Тільки в мультиплеєрі) -->
+                    <button class="gadget-btn sabotage-btn" id="btnSabotage" style="display: none;" title="Підкинути віртуального жука в ліфти всіх суперників!">
+                        <span>🪲</span>
+                        <span class="gadget-text">Саботаж</span>
+                        <span class="badge-count" id="sabotageBadge">1</span>
+                    </button>
+                </div>
+
+                <div class="system-tools">
+                    <button class="icon-btn" id="btnToggleSound" title="Увімкнути/Вимкнути звук">🔊</button>
+                    <button class="icon-btn" id="btnShowRecords" title="Таблиця рекордів">🏆</button>
+                    <button class="icon-btn" id="btnShowHelp" title="Правила та нарахування балів">❓</button>
+                </div>
+
+            </footer>
+
+        </div>
+
+    </main>
+
+    <!-- ========================================================
+         МОДАЛЬНЕ ВІКНО: МУЛЬТИПЛЕЄР ЛОБІ (2-8 ГРАВЦІВ, БЕЗ БОТІВ)
+         ======================================================== -->
+    <div class="modal-overlay" id="modalOnline">
+        <div class="modal-box online-modal-box">
+            <button class="close-modal-btn" id="btnCloseOnlineModal">&times;</button>
+            
+            <div class="modal-header">
+                <h2 class="modal-title">⚔️ <span>ОНЛАЙН</span> КІМНАТА</h2>
+                <p class="modal-desc">Збирайте від 2 до 8 реальних гравців на спільний підйом!</p>
+            </div>
+
+            <!-- Вибір дій: створити або увійти -->
+            <div id="roomSelectScreen">
+                <div class="modes-grid" style="margin-bottom: 16px;">
+                    
+                    <div class="mode-card" id="btnCreateNewRoomAction">
+                        <div class="mode-icon-box">🚪</div>
+                        <div class="mode-text">
+                            <h3 class="mode-name">Створити Кімнату</h3>
+                            <p class="mode-info">Отримайте PIN-код та запросіть від 1 до 7 друзів.</p>
+                        </div>
+                        <div class="mode-arrow">➔</div>
+                    </div>
+
+                    <div class="mode-card" id="btnOpenJoinCodeAction">
+                        <div class="mode-icon-box">🔗</div>
+                        <div class="mode-text">
+                            <h3 class="mode-name">Приєднатися за Кодом</h3>
+                            <p class="mode-info">Введіть 4-значний код кімнати вашого друга.</p>
+                        </div>
+                        <div class="mode-arrow">➔</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Екран введення коду -->
+            <div id="roomJoinInputScreen" style="display: none;">
+                <label style="font-size: 13px; color: var(--blue-neon); display: block; margin-bottom: 6px;">
+                    Введіть 4-значний PIN-код кімнати:
+                </label>
+                <input type="text" id="inputRoomCode" placeholder="Наприклад: 4819" maxlength="6" inputmode="numeric"
+                       style="width: 100%; background: #030816; border: 1.5px solid var(--border-blue); color: #fff; padding: 14px; border-radius: 12px; font-size: 24px; text-align: center; font-family: monospace; letter-spacing: 4px; outline: none;">
+                
+                <div style="display: flex; gap: 10px; margin-top: 14px;">
+                    <button class="btn-primary" style="flex: 1;" id="btnConfirmJoinRoom">
+                        <span>🚪</span>
+                        <span>УВІЙТИ</span>
+                    </button>
+                    <button class="btn-primary" style="flex: 1; background: rgba(3, 10, 28, 0.8);" id="btnBackToRoomSelect">
+                        <span>НАЗАД</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Екран кімнати очікування (Лобі гравців) -->
+            <div id="roomWaitingLobbyScreen" style="display: none;">
+                
+                <div class="room-pin-banner">
+                    <span class="pin-label">КОД КІМНАТИ:</span>
+                    <span class="pin-value" id="currentRoomCodeDisplay">----</span>
+                    <p class="pin-hint">Відкрийте гру в інших вкладках або надішліть код друзям!</p>
+                </div>
+
+                <div class="lobby-players-header">
+                    <span>ПАСАЖИРИ В ЛІФТІ:</span>
+                    <span class="count-pill" id="lobbyPlayerCount">1 / 8</span>
+                </div>
+
+                <!-- Список реальних підключених гравців -->
+                <div class="lobby-players-list" id="lobbyPlayersList">
+                    <!-- Заповнюється динамічно: Гравець 1, Гравець 2, Гравець 3... -->
+                </div>
+
+                <!-- Кнопка старту для хоста -->
+                <button class="btn-primary" id="btnHostStartGame" style="display: none; margin-top: 18px;">
+                    <span>🚀</span>
+                    <span>ПОЧАТИ БИТВУ</span>
+                </button>
+
+                <!-- Повідомлення для звичайних гравців -->
+                <p id="waitingForHostText" style="display: none; font-size: 13.5px; color: var(--blue-neon); text-align: center; margin-top: 14px; animation: pulseCombo 1s infinite alternate;">
+                    ⏳ Очікування, поки організатор кімнати запустить гру...
+                </p>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНЕ ВІКНО: ТАБЛИЦЯ РЕКОРДІВ -->
+    <div class="modal-overlay" id="modalRecords">
+        <div class="modal-box">
+            <button class="close-modal-btn" onclick="document.getElementById('modalRecords').classList.remove('active')">&times;</button>
+            <div class="modal-header">
+                <h2 class="modal-title">🏆 <span>РЕКОРДИ</span> ХМАРОЧОСА</h2>
+                <p class="modal-desc">Найкращі пасажири, які підкорили висоту</p>
+            </div>
+            
+            <div class="table-scroll-wrap">
+                <table class="records-table">
+                    <thead>
+                        <tr>
+                            <th>Місце</th>
+                            <th>Пасажир</th>
+                            <th>Поверх</th>
+                            <th style="text-align: right;">Бали</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsTableBody">
+                        <!-- Заповнюється динамічно -->
+                    </tbody>
+                </table>
+            </div>
+
+            <button class="btn-primary" style="margin-top: 18px;" onclick="document.getElementById('modalRecords').classList.remove('active')">
+                ЗАКРИТИ
+            </button>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНЕ ВІКНО: ДОВІДКА / ПРАВИЛА -->
+    <div class="modal-overlay" id="modalHelp">
+        <div class="modal-box">
+            <button class="close-modal-btn" onclick="document.getElementById('modalHelp').classList.remove('active')">&times;</button>
+            <div class="modal-header">
+                <h2 class="modal-title">📖 <span>ПРАВИЛА</span> ГРИ</h2>
+                <p class="modal-desc">Як набрати максимум балів та перемагати:</p>
+            </div>
+            
+            <div class="rules-list">
+                <div class="rule-item">
+                    <span>⚡</span>
+                    <span style="flex:1;">Швидкий бліц:</span>
+                    <span class="rule-pts">+100 Б</span>
+                </div>
+                <div class="rule-item">
+                    <span>🧠</span>
+                    <span style="flex:1;">IT & Логічні головоломки:</span>
+                    <span class="rule-pts">+250 Б</span>
+                </div>
+                <div class="rule-item">
+                    <span>🎭</span>
+                    <span style="flex:1;">Мемна академія:</span>
+                    <span class="rule-pts">+400 Б</span>
+                </div>
+                <div class="rule-item">
+                    <span>🎮</span>
+                    <span style="flex:1;">Інтерактивні міні-ігри:</span>
+                    <span class="rule-pts">+500-600 Б</span>
+                </div>
+                <div class="rule-item">
+                    <span>👑</span>
+                    <span style="flex:1;">Бос Архітектор:</span>
+                    <span class="rule-pts">+1000 Б</span>
+                </div>
+                <div class="rule-item">
+                    <span>🤖</span>
+                    <span><strong>ШІ-Генератор:</strong> якщо запитання вичерпуються, ШІ створює свіжі абсурдні питання на льоту!</span>
+                </div>
+                <div class="rule-item">
+                    <span>👥</span>
+                    <span><strong>Мультиплеєр для 2–8 гравців:</strong> жодних ботів! Створіть кімнату, надішліть PIN друзям та дізнайтесь, чий ліфт найшвидший!</span>
+                </div>
+            </div>
+
+            <button class="btn-primary" onclick="document.getElementById('modalHelp').classList.remove('active')">
+                ЗРОЗУМІЛО!
+            </button>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНЕ ВІКНО: ФІНІШ / ПІДБИТТЯ ПІДСУМКІВ -->
+    <div class="modal-overlay" id="modalFinish">
+        <div class="modal-box" style="text-align: center; max-width: 580px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="finishTitle">🎉 <span>ПЕРЕМОГА!</span></h2>
+                <p class="modal-desc" id="finishSub">Ви досягли найвищої точки хмарочоса!</p>
+            </div>
+
+            <!-- ПОДІУМ МУЛЬТИПЛЕЄРУ (ДЛЯ 2, 3, 4+ ГРАВЦІВ) -->
+            <div id="multiplayerPodiumBox" style="display: none; margin-bottom: 16px;">
+                <div class="podium-banner" id="podiumBanner">РЕЙТИНГ ПЕРЕГОНІВ 🏆</div>
+                <div class="podium-list" id="podiumList">
+                    <!-- Заповнюється списком усіх гравців з їхніми місцями -->
+                </div>
+            </div>
+
+            <!-- Одиночний рахунок -->
+            <div id="soloScoreBox" style="background: rgba(3, 10, 28, 0.7); border: 2px solid var(--border-blue); border-radius: 16px; padding: 18px; margin: 16px 0;">
+                <div style="font-size: 13px; color: var(--blue-neon); text-transform: uppercase;">Фінальний Рахунок:</div>
+                <div style="font-size: 44px; font-weight: 900; color: var(--accent-gold); font-family: monospace;" id="finishScore">0</div>
+                <div style="font-size: 14px; color: #cbd5e1; margin-top: 8px;" id="finishRank">Звання: Король Ліфтів 👑</div>
+            </div>
+
+            <p style="font-size: 13.5px; color: #94a3b8; margin-bottom: 16px;" id="finishComment">
+                "Диспетчер Василь аплодує стоячи!"
+            </p>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-primary" style="flex: 1;" id="btnRestartGame">
+                    <span>🔄</span>
+                    <span>ЩЕ РАЗ</span>
+                </button>
+                <button class="btn-primary" style="flex: 1; background: linear-gradient(135deg, #1e3a8a, #3b82f6);" id="btnFinishToMenu">
+                    <span>🏠</span>
+                    <span>В МЕНЮ</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- СКРИПТИ -->
+    <script src="audio.js"></script>
+    <script src="questions.js"></script>
+    <script src="network.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
